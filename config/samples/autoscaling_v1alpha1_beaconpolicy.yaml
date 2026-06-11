@@ -1,0 +1,15 @@
+apiVersion: autoscaling.beacon.dev/v1alpha1
+kind: BeaconPolicy
+metadata:
+  name: sample-api-policy
+  namespace: default
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: sample-api
+  minCPURequest: "100m"
+  maxCPURequest: "1000m"
+  scaleUpStepPercent: 25
+  starvationWindowSeconds: 10
+  reactionLatencyBudgetMillis: 4000

@@ -9,6 +9,7 @@
 bin/
 dist/
 *.test
+cover.out
 coverage.out
 
 # Kubernetes/operator build artifacts
