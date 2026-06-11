@@ -4,11 +4,15 @@ Beacon is a Kubernetes operator foundation for future workload autoscaling based
 
 Repository: `github.com/jelb30/Beacon`
 
-## Phase 1 Scope
+## Phase Scope
 
 Phase 1 provides a clean Kubebuilder/controller-runtime scaffold with one custom resource: `BeaconPolicy`.
 
-This phase does not implement eBPF collection, Terraform, Prometheus metrics, OpenTelemetry tracing, or real workload scaling. The controller only reconciles `BeaconPolicy` resources and writes a readiness status proving the operator foundation is installed and running.
+Phase 2 adds a `StarvationEvent` custom resource and ingestion path. Synthetic starvation events can be created in Kubernetes, routed to a `BeaconPolicy`, and reflected in policy status.
+
+Phase 3 adds the vertical scaling patch engine. CPU starvation events increase the target Deployment container's CPU request. Memory starvation events increase memory requests when memory policy bounds are configured.
+
+These phases do not implement eBPF collection, Terraform, Prometheus metrics, OpenTelemetry tracing, or benchmarking.
 
 ## Prerequisites
 
@@ -38,6 +42,12 @@ Run tests:
 make test
 ```
 
+Or run the Go test suite directly:
+
+```sh
+go test ./...
+```
+
 Build the controller image:
 
 ```sh
@@ -56,10 +66,34 @@ Run the operator locally:
 make run
 ```
 
+In another terminal, apply the sample workload:
+
+```sh
+kubectl apply -f config/samples/sample-api-deployment.yaml
+```
+
 Apply the sample policy:
 
 ```sh
 kubectl apply -f config/samples/autoscaling_v1alpha1_beaconpolicy.yaml
+```
+
+Emit a synthetic starvation event:
+
+```sh
+./hack/emit-starvation-event.sh
+```
+
+Check the patched CPU request:
+
+```sh
+kubectl get deployment sample-api -n default -o jsonpath='{.spec.template.spec.containers[0].resources.requests.cpu}{"\n"}'
+```
+
+List StarvationEvent resources:
+
+```sh
+kubectl get starvationevents -A
 ```
 
 List BeaconPolicy resources:
@@ -74,6 +108,16 @@ Inspect the sample policy:
 kubectl describe beaconpolicy sample-api-policy -n default
 ```
 
+Inspect the full policy status:
+
+```sh
+kubectl get beaconpolicy sample-api-policy -n default -o yaml
+```
+
 ## Expected Result
 
-The `BeaconPolicy` resource exists, the `Ready` condition becomes `True`, and `status.lastDecision` becomes `NoopPhase1ScaffoldReady`.
+For Phase 1, the `BeaconPolicy` resource exists, the `Ready` condition becomes `True`, and `status.lastDecision` becomes `NoopPhase1ScaffoldReady`.
+
+For Phase 2, the `StarvationEvent` shows `Processed=True`, and the `BeaconPolicy` status records the latest event fields.
+
+For Phase 3, the sample Deployment CPU request changes from `100m` to `125m` after one `CPUStarvation` event. Another event increases it again, for example from `125m` to around `156m`. CPU requests never exceed `maxCPURequest`. `BeaconPolicy` status should show `lastDecision=VerticalScalePatchApplied`, and `StarvationEvent` status should show `processed=true`.

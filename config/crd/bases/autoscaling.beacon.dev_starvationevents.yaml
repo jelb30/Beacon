@@ -4,33 +4,36 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.20.1
-  name: beaconpolicies.autoscaling.beacon.dev
+  name: starvationevents.autoscaling.beacon.dev
 spec:
   group: autoscaling.beacon.dev
   names:
-    kind: BeaconPolicy
-    listKind: BeaconPolicyList
-    plural: beaconpolicies
-    singular: beaconpolicy
+    kind: StarvationEvent
+    listKind: StarvationEventList
+    plural: starvationevents
+    singular: starvationevent
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.targetRef.name
-      name: Target
+    - jsonPath: .spec.policyName
+      name: Policy
       type: string
-    - jsonPath: .status.lastDecision
-      name: LastDecision
+    - jsonPath: .spec.signalType
+      name: Signal
       type: string
-    - jsonPath: .status.lastReactionLatencyMillis
+    - jsonPath: .spec.severity
+      name: Severity
+      type: string
+    - jsonPath: .status.processed
+      name: Processed
+      type: boolean
+    - jsonPath: .status.reactionLatencyMillis
       name: LatencyMs
       type: integer
-    - jsonPath: .status.conditions[?(@.type=='Ready')].status
-      name: Ready
-      type: string
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: BeaconPolicy is the Schema for the beaconpolicies API
+        description: StarvationEvent is the Schema for the starvationevents API
         properties:
           apiVersion:
             description: |-
@@ -50,32 +53,32 @@ spec:
           metadata:
             type: object
           spec:
-            description: spec defines the desired state of BeaconPolicy
+            description: spec defines the desired state of StarvationEvent
             properties:
-              maxCPURequest:
+              containerName:
                 type: string
-              maxMemoryRequest:
+              message:
                 type: string
-              minCPURequest:
+              observedAt:
+                format: date-time
                 type: string
-              minMemoryRequest:
+              policyName:
                 type: string
-              reactionLatencyBudgetMillis:
-                format: int32
-                minimum: 1
-                type: integer
-              scaleUpStepPercent:
-                format: int32
-                maximum: 100
-                minimum: 1
-                type: integer
-              starvationWindowSeconds:
-                format: int32
-                minimum: 1
-                type: integer
+              severity:
+                enum:
+                - Low
+                - Medium
+                - High
+                - Critical
+                type: string
+              signalType:
+                enum:
+                - CPUStarvation
+                - MemoryStarvation
+                type: string
               targetRef:
-                description: BeaconPolicyTargetRef identifies the workload controlled
-                  by a BeaconPolicy.
+                description: StarvationEventTargetRef identifies the workload associated
+                  with a starvation signal.
                 properties:
                   apiVersion:
                     type: string
@@ -91,15 +94,15 @@ spec:
                 - name
                 type: object
             required:
-            - maxCPURequest
-            - minCPURequest
-            - reactionLatencyBudgetMillis
-            - scaleUpStepPercent
-            - starvationWindowSeconds
+            - containerName
+            - observedAt
+            - policyName
+            - severity
+            - signalType
             - targetRef
             type: object
           status:
-            description: status defines the observed state of BeaconPolicy
+            description: status defines the observed state of StarvationEvent
             properties:
               conditions:
                 items:
@@ -160,42 +163,18 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
-              lastDecision:
-                type: string
-              lastEventName:
-                type: string
-              lastEventObservedAt:
-                format: date-time
-                type: string
-              lastEventSeverity:
-                type: string
-              lastPatchedContainer:
-                type: string
-              lastPatchedDeployment:
-                type: string
-              lastReactionLatencyMillis:
-                format: int64
-                type: integer
-              lastReconcileTime:
-                format: date-time
-                type: string
-              lastScaledAt:
-                format: date-time
-                type: string
-              lastSignalType:
-                type: string
-              newCPURequest:
-                type: string
-              newMemoryRequest:
-                type: string
               observedGeneration:
                 format: int64
                 type: integer
-              previousCPURequest:
+              processed:
+                type: boolean
+              processedAt:
+                format: date-time
                 type: string
-              previousMemoryRequest:
-                type: string
-              scaleAction:
+              reactionLatencyMillis:
+                format: int64
+                type: integer
+              routedPolicy:
                 type: string
             type: object
         required:

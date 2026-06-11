@@ -10,6 +10,8 @@ spec:
     name: sample-api
   minCPURequest: "100m"
   maxCPURequest: "1000m"
+  minMemoryRequest: "128Mi"
+  maxMemoryRequest: "1Gi"
   scaleUpStepPercent: 25
   starvationWindowSeconds: 10
   reactionLatencyBudgetMillis: 4000

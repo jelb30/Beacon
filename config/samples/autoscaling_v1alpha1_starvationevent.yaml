@@ -1,0 +1,16 @@
+apiVersion: autoscaling.beacon.dev/v1alpha1
+kind: StarvationEvent
+metadata:
+  name: sample-api-cpu-starvation
+  namespace: default
+spec:
+  policyName: sample-api-policy
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: sample-api
+  containerName: api
+  signalType: CPUStarvation
+  observedAt: "2026-06-11T12:00:00Z"
+  severity: High
+  message: "Synthetic CPU starvation event for Phase 3 validation."

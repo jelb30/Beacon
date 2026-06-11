@@ -1,4 +1,6 @@
 ## Append samples of your project ##
 resources:
+- sample-api-deployment.yaml
 - autoscaling_v1alpha1_beaconpolicy.yaml
+- autoscaling_v1alpha1_starvationevent.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

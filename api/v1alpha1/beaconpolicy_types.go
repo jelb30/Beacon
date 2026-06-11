@@ -48,6 +48,12 @@ type BeaconPolicySpec struct {
 	// +kubebuilder:validation:Required
 	MaxCPURequest string `json:"maxCPURequest"`
 
+	// +optional
+	MinMemoryRequest string `json:"minMemoryRequest,omitempty"`
+
+	// +optional
+	MaxMemoryRequest string `json:"maxMemoryRequest,omitempty"`
+
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=100
@@ -80,6 +86,42 @@ type BeaconPolicyStatus struct {
 
 	// +optional
 	LastReactionLatencyMillis int64 `json:"lastReactionLatencyMillis"`
+
+	// +optional
+	LastEventName string `json:"lastEventName,omitempty"`
+
+	// +optional
+	LastSignalType string `json:"lastSignalType,omitempty"`
+
+	// +optional
+	LastEventSeverity string `json:"lastEventSeverity,omitempty"`
+
+	// +optional
+	LastEventObservedAt *metav1.Time `json:"lastEventObservedAt,omitempty"`
+
+	// +optional
+	LastScaledAt *metav1.Time `json:"lastScaledAt,omitempty"`
+
+	// +optional
+	LastPatchedDeployment string `json:"lastPatchedDeployment,omitempty"`
+
+	// +optional
+	LastPatchedContainer string `json:"lastPatchedContainer,omitempty"`
+
+	// +optional
+	PreviousCPURequest string `json:"previousCPURequest,omitempty"`
+
+	// +optional
+	NewCPURequest string `json:"newCPURequest,omitempty"`
+
+	// +optional
+	PreviousMemoryRequest string `json:"previousMemoryRequest,omitempty"`
+
+	// +optional
+	NewMemoryRequest string `json:"newMemoryRequest,omitempty"`
+
+	// +optional
+	ScaleAction string `json:"scaleAction,omitempty"`
 }
 
 // +kubebuilder:object:root=true
