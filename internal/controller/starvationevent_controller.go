@@ -31,6 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/util/retry"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -591,37 +592,45 @@ func (r *StarvationEventReconciler) updatePolicyStatus(
 	policy *autoscalingv1alpha1.BeaconPolicy,
 	patch policyStatusPatch,
 ) error {
-	updated := policy.DeepCopy()
-	updated.Status.ObservedGeneration = updated.Generation
-	updated.Status.LastReconcileTime = patch.now.DeepCopy()
-	updated.Status.LastDecision = patch.lastDecision
-	updated.Status.LastReactionLatencyMillis = patch.reactionLatencyMillis
-	updated.Status.LastEventName = patch.event.Name
-	updated.Status.LastSignalType = patch.event.Spec.SignalType
-	updated.Status.LastEventSeverity = patch.event.Spec.Severity
-	updated.Status.LastEventObservedAt = patch.event.Spec.ObservedAt.DeepCopy()
-	updated.Status.LastScaledAt = patch.lastScaledAt
-	updated.Status.LastPatchedDeployment = patch.patchedDeployment
-	updated.Status.LastPatchedContainer = patch.patchedContainer
-	updated.Status.PreviousCPURequest = patch.previousCPURequest
-	updated.Status.NewCPURequest = patch.newCPURequest
-	updated.Status.PreviousMemoryRequest = patch.previousMemoryRequest
-	updated.Status.NewMemoryRequest = patch.newMemoryRequest
-	updated.Status.ScaleAction = patch.scaleAction
-	meta.SetStatusCondition(&updated.Status.Conditions, metav1.Condition{
-		Type:               autoscalingv1alpha1.BeaconPolicyReadyCondition,
-		Status:             patch.conditionStatus,
-		ObservedGeneration: updated.Generation,
-		LastTransitionTime: patch.now,
-		Reason:             patch.conditionReason,
-		Message:            patch.conditionMessage,
+	key := types.NamespacedName{Name: policy.Name, Namespace: policy.Namespace}
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		latest := &autoscalingv1alpha1.BeaconPolicy{}
+		if err := r.Get(ctx, key, latest); err != nil {
+			return err
+		}
+
+		updated := latest.DeepCopy()
+		updated.Status.ObservedGeneration = updated.Generation
+		updated.Status.LastReconcileTime = patch.now.DeepCopy()
+		updated.Status.LastDecision = patch.lastDecision
+		updated.Status.LastReactionLatencyMillis = patch.reactionLatencyMillis
+		updated.Status.LastEventName = patch.event.Name
+		updated.Status.LastSignalType = patch.event.Spec.SignalType
+		updated.Status.LastEventSeverity = patch.event.Spec.Severity
+		updated.Status.LastEventObservedAt = patch.event.Spec.ObservedAt.DeepCopy()
+		updated.Status.LastScaledAt = patch.lastScaledAt
+		updated.Status.LastPatchedDeployment = patch.patchedDeployment
+		updated.Status.LastPatchedContainer = patch.patchedContainer
+		updated.Status.PreviousCPURequest = patch.previousCPURequest
+		updated.Status.NewCPURequest = patch.newCPURequest
+		updated.Status.PreviousMemoryRequest = patch.previousMemoryRequest
+		updated.Status.NewMemoryRequest = patch.newMemoryRequest
+		updated.Status.ScaleAction = patch.scaleAction
+		meta.SetStatusCondition(&updated.Status.Conditions, metav1.Condition{
+			Type:               autoscalingv1alpha1.BeaconPolicyReadyCondition,
+			Status:             patch.conditionStatus,
+			ObservedGeneration: updated.Generation,
+			LastTransitionTime: patch.now,
+			Reason:             patch.conditionReason,
+			Message:            patch.conditionMessage,
+		})
+
+		if apiequality.Semantic.DeepEqual(latest.Status, updated.Status) {
+			return nil
+		}
+
+		return r.Status().Update(ctx, updated)
 	})
-
-	if apiequality.Semantic.DeepEqual(policy.Status, updated.Status) {
-		return nil
-	}
-
-	return r.Status().Update(ctx, updated)
 }
 
 func (r *StarvationEventReconciler) updateEventStatus(
@@ -629,28 +638,36 @@ func (r *StarvationEventReconciler) updateEventStatus(
 	event *autoscalingv1alpha1.StarvationEvent,
 	patch eventStatusPatch,
 ) error {
-	updated := event.DeepCopy()
-	updated.Status.ObservedGeneration = updated.Generation
-	updated.Status.Processed = patch.processed
-	if patch.processed {
-		updated.Status.ProcessedAt = patch.now.DeepCopy()
-	}
-	updated.Status.RoutedPolicy = patch.routedPolicy
-	updated.Status.ReactionLatencyMillis = patch.reactionLatencyMillis
-	meta.SetStatusCondition(&updated.Status.Conditions, metav1.Condition{
-		Type:               autoscalingv1alpha1.StarvationEventProcessedCondition,
-		Status:             patch.conditionStatus,
-		ObservedGeneration: updated.Generation,
-		LastTransitionTime: patch.now,
-		Reason:             patch.conditionReason,
-		Message:            patch.conditionMessage,
+	key := types.NamespacedName{Name: event.Name, Namespace: event.Namespace}
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		latest := &autoscalingv1alpha1.StarvationEvent{}
+		if err := r.Get(ctx, key, latest); err != nil {
+			return err
+		}
+
+		updated := latest.DeepCopy()
+		updated.Status.ObservedGeneration = updated.Generation
+		updated.Status.Processed = patch.processed
+		if patch.processed {
+			updated.Status.ProcessedAt = patch.now.DeepCopy()
+		}
+		updated.Status.RoutedPolicy = patch.routedPolicy
+		updated.Status.ReactionLatencyMillis = patch.reactionLatencyMillis
+		meta.SetStatusCondition(&updated.Status.Conditions, metav1.Condition{
+			Type:               autoscalingv1alpha1.StarvationEventProcessedCondition,
+			Status:             patch.conditionStatus,
+			ObservedGeneration: updated.Generation,
+			LastTransitionTime: patch.now,
+			Reason:             patch.conditionReason,
+			Message:            patch.conditionMessage,
+		})
+
+		if apiequality.Semantic.DeepEqual(latest.Status, updated.Status) {
+			return nil
+		}
+
+		return r.Status().Update(ctx, updated)
 	})
-
-	if apiequality.Semantic.DeepEqual(event.Status, updated.Status) {
-		return nil
-	}
-
-	return r.Status().Update(ctx, updated)
 }
 
 func reactionLatencyMillis(now metav1.Time, observedAt metav1.Time) int64 {

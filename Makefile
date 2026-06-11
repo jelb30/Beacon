@@ -106,6 +106,18 @@ lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 lint-config: golangci-lint ## Verify golangci-lint linter configuration
 	"$(GOLANGCI_LINT)" config verify
 
+.PHONY: demo-reset
+demo-reset: ## Reset the sample Deployment and BeaconPolicy for the latency demo.
+	./hack/reset-sample-api.sh
+
+.PHONY: benchmark
+benchmark: ## Run one synthetic event-to-patch latency benchmark.
+	./hack/benchmark-scale-latency.sh
+
+.PHONY: benchmark-series
+benchmark-series: ## Run a repeated synthetic event-to-patch latency benchmark series.
+	./hack/run-benchmark-series.sh
+
 ##@ Build
 
 .PHONY: build
