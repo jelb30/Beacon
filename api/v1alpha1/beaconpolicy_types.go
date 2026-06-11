@@ -80,6 +80,18 @@ type BeaconPolicyStatus struct {
 
 	// +optional
 	LastReactionLatencyMillis int64 `json:"lastReactionLatencyMillis"`
+
+	// +optional
+	LastEventName string `json:"lastEventName,omitempty"`
+
+	// +optional
+	LastSignalType string `json:"lastSignalType,omitempty"`
+
+	// +optional
+	LastEventSeverity string `json:"lastEventSeverity,omitempty"`
+
+	// +optional
+	LastEventObservedAt *metav1.Time `json:"lastEventObservedAt,omitempty"`
 }
 
 // +kubebuilder:object:root=true

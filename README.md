@@ -4,11 +4,13 @@ Beacon is a Kubernetes operator foundation for future workload autoscaling based
 
 Repository: `github.com/jelb30/Beacon`
 
-## Phase 1 Scope
+## Phase Scope
 
 Phase 1 provides a clean Kubebuilder/controller-runtime scaffold with one custom resource: `BeaconPolicy`.
 
-This phase does not implement eBPF collection, Terraform, Prometheus metrics, OpenTelemetry tracing, or real workload scaling. The controller only reconciles `BeaconPolicy` resources and writes a readiness status proving the operator foundation is installed and running.
+Phase 2 adds a `StarvationEvent` custom resource and ingestion path. Synthetic starvation events can be created in Kubernetes, routed to a `BeaconPolicy`, and reflected in policy status.
+
+These phases do not implement eBPF collection, Terraform, Prometheus metrics, OpenTelemetry tracing, or real workload scaling.
 
 ## Prerequisites
 
@@ -38,6 +40,12 @@ Run tests:
 make test
 ```
 
+Or run the Go test suite directly:
+
+```sh
+go test ./...
+```
+
 Build the controller image:
 
 ```sh
@@ -62,6 +70,24 @@ Apply the sample policy:
 kubectl apply -f config/samples/autoscaling_v1alpha1_beaconpolicy.yaml
 ```
 
+Emit a synthetic starvation event in another terminal while `make run` is active:
+
+```sh
+./hack/emit-starvation-event.sh
+```
+
+You can also apply the static sample event:
+
+```sh
+kubectl apply -f config/samples/autoscaling_v1alpha1_starvationevent.yaml
+```
+
+List StarvationEvent resources:
+
+```sh
+kubectl get starvationevents -A
+```
+
 List BeaconPolicy resources:
 
 ```sh
@@ -76,4 +102,6 @@ kubectl describe beaconpolicy sample-api-policy -n default
 
 ## Expected Result
 
-The `BeaconPolicy` resource exists, the `Ready` condition becomes `True`, and `status.lastDecision` becomes `NoopPhase1ScaffoldReady`.
+For Phase 1, the `BeaconPolicy` resource exists, the `Ready` condition becomes `True`, and `status.lastDecision` becomes `NoopPhase1ScaffoldReady`.
+
+For Phase 2, the `StarvationEvent` shows `Processed=True`. The `BeaconPolicy` status shows `lastDecision=StarvationEventObserved`, plus `lastEventName`, `lastSignalType`, `lastEventSeverity`, and `lastReactionLatencyMillis`.
