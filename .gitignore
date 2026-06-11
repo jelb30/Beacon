@@ -1,0 +1,30 @@
+# macOS
+.DS_Store
+
+# IDEs
+.vscode/
+.idea/
+
+# Go
+bin/
+dist/
+*.test
+coverage.out
+
+# Kubernetes/operator build artifacts
+tmp/
+.envtest/
+kubeconfig
+*.kubeconfig
+
+# Terraform future phase
+.terraform/
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+*.auto.tfvars
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
