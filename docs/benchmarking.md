@@ -61,3 +61,151 @@ kubectl get beaconpolicy sample-api-policy -n default -o yaml
 Periodic scrape and polling paths usually wait for the next collection interval before a controller can react. Beacon's synthetic path models an event-driven design: once a starvation signal exists as a Kubernetes object, reconciliation can run immediately and patch the workload without waiting for a metrics scrape period.
 
 That is the core resume-defensible claim this phase demonstrates: low-latency event-to-patch behavior under synthetic signal input. Once eBPF integration is added, the same benchmark structure can be extended to measure real signal-to-patch latency.
+
+## Beacon Synthetic Scale-Up Benchmark
+
+Policy: sample-api-policy
+Deployment: sample-api
+Container: api
+Signal: CPUStarvation
+Severity: High
+
+Event: benchmark-cpustarvation-1781221647-51421
+Event creation time: 2026-06-11T23:47:27Z
+
+CPU request before: 100m
+CPU request after: 125m
+
+StarvationEvent latency: 782ms
+BeaconPolicy latency: 782ms
+Latency budget: 4000ms
+Decision: VerticalScalePatchApplied
+Result: PASS
+JELB@jelb beacon % make benchmark-series
+./hack/run-benchmark-series.sh
+deployment.apps/sample-api configured
+beaconpolicy.autoscaling.beacon.dev/sample-api-policy unchanged
+starvationevent.autoscaling.beacon.dev "benchmark-cpustarvation-1781221647-51421" deleted from default namespace
+No resources found
+deployment.apps/sample-api condition met
+Sample API reset complete.
+Deployment: default/sample-api
+Container: api
+Current CPU request: 100m
+
+## Beacon Benchmark Series
+
+Runs: 5
+
+### Run 1/5
+## Beacon Synthetic Scale-Up Benchmark
+
+Policy: sample-api-policy
+Deployment: sample-api
+Container: api
+Signal: CPUStarvation
+Severity: High
+
+Event: benchmark-cpustarvation-1781221674-51499
+Event creation time: 2026-06-11T23:47:54Z
+
+CPU request before: 100m
+CPU request after: 125m
+
+StarvationEvent latency: 400ms
+BeaconPolicy latency: 400ms
+Latency budget: 4000ms
+Decision: VerticalScalePatchApplied
+Result: PASS
+
+### Run 2/5
+## Beacon Synthetic Scale-Up Benchmark
+
+Policy: sample-api-policy
+Deployment: sample-api
+Container: api
+Signal: CPUStarvation
+Severity: High
+
+Event: benchmark-cpustarvation-1781221674-51533
+Event creation time: 2026-06-11T23:47:54Z
+
+CPU request before: 125m
+CPU request after: 156m
+
+StarvationEvent latency: 896ms
+BeaconPolicy latency: 896ms
+Latency budget: 4000ms
+Decision: VerticalScalePatchApplied
+Result: PASS
+
+### Run 3/5
+## Beacon Synthetic Scale-Up Benchmark
+
+Policy: sample-api-policy
+Deployment: sample-api
+Container: api
+Signal: CPUStarvation
+Severity: High
+
+Event: benchmark-cpustarvation-1781221675-51567
+Event creation time: 2026-06-11T23:47:55Z
+
+CPU request before: 156m
+CPU request after: 195m
+
+StarvationEvent latency: 364ms
+BeaconPolicy latency: 364ms
+Latency budget: 4000ms
+Decision: VerticalScalePatchApplied
+Result: PASS
+
+### Run 4/5
+## Beacon Synthetic Scale-Up Benchmark
+
+Policy: sample-api-policy
+Deployment: sample-api
+Container: api
+Signal: CPUStarvation
+Severity: High
+
+Event: benchmark-cpustarvation-1781221675-51601
+Event creation time: 2026-06-11T23:47:55Z
+
+CPU request before: 195m
+CPU request after: 243m
+
+StarvationEvent latency: 839ms
+BeaconPolicy latency: 839ms
+Latency budget: 4000ms
+Decision: VerticalScalePatchApplied
+Result: PASS
+
+### Run 5/5
+## Beacon Synthetic Scale-Up Benchmark
+
+Policy: sample-api-policy
+Deployment: sample-api
+Container: api
+Signal: CPUStarvation
+Severity: High
+
+Event: benchmark-cpustarvation-1781221676-51636
+Event creation time: 2026-06-11T23:47:56Z
+
+CPU request before: 243m
+CPU request after: 303m
+
+StarvationEvent latency: 316ms
+BeaconPolicy latency: 316ms
+Latency budget: 4000ms
+Decision: VerticalScalePatchApplied
+Result: PASS
+
+## Series Summary
+
+Passes: 5
+Failures: 0
+Min latency: 316ms
+Max latency: 896ms
+Average latency: 563ms
