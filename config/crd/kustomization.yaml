@@ -3,6 +3,7 @@
 # It should be run by config/default
 resources:
 - bases/autoscaling.beacon.dev_beaconpolicies.yaml
+- bases/autoscaling.beacon.dev_starvationevents.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patches:

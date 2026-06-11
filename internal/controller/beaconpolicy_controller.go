@@ -69,12 +69,11 @@ func (r *BeaconPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		"generation", policy.Generation,
 	)
 
-	// TODO: consume starvation events.
 	// TODO: compute vertical scaling patch.
 	// TODO: patch target workload resources.
 	// TODO: emit OpenTelemetry spans.
 
-	if phase1StatusCurrent(policy) {
+	if beaconPolicyReadyForCurrentGeneration(policy) {
 		return ctrl.Result{}, nil
 	}
 
@@ -121,4 +120,15 @@ func phase1StatusCurrent(policy *autoscalingv1alpha1.BeaconPolicy) bool {
 		ready.ObservedGeneration == policy.Generation &&
 		ready.Reason == phase1ReadyReason &&
 		ready.Message == phase1ReadyMessage
+}
+
+func beaconPolicyReadyForCurrentGeneration(policy *autoscalingv1alpha1.BeaconPolicy) bool {
+	ready := meta.FindStatusCondition(policy.Status.Conditions, autoscalingv1alpha1.BeaconPolicyReadyCondition)
+	if ready == nil {
+		return false
+	}
+
+	return policy.Status.ObservedGeneration == policy.Generation &&
+		ready.Status == metav1.ConditionTrue &&
+		ready.ObservedGeneration == policy.Generation
 }

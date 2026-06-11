@@ -24,6 +24,7 @@ rules:
   - autoscaling.beacon.dev
   resources:
   - beaconpolicies
+  - starvationevents
   verbs:
   - create
   - delete
@@ -36,12 +37,14 @@ rules:
   - autoscaling.beacon.dev
   resources:
   - beaconpolicies/finalizers
+  - starvationevents/finalizers
   verbs:
   - update
 - apiGroups:
   - autoscaling.beacon.dev
   resources:
   - beaconpolicies/status
+  - starvationevents/status
   verbs:
   - get
   - patch
