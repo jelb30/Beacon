@@ -27,7 +27,9 @@ kubectl apply -f config/samples/autoscaling_v1alpha1_beaconpolicy.yaml
 
 kubectl delete starvationevents -n "$NAMESPACE" -l beacon.dev/benchmark=true --ignore-not-found=true
 kubectl delete starvationevents -n "$NAMESPACE" -l beacon.dev/synthetic=true --ignore-not-found=true
-for event in $(kubectl get starvationevents -n "$NAMESPACE" -o name 2>/dev/null | awk -F/ '$2 ~ /^benchmark-/ { print $2 }'); do
+kubectl delete starvationevents -n "$NAMESPACE" -l app.kubernetes.io/component=agent --ignore-not-found=true
+kubectl delete starvationevents -n "$NAMESPACE" -l beacon.dev/source=synthetic --ignore-not-found=true
+for event in $(kubectl get starvationevents -n "$NAMESPACE" -o name 2>/dev/null | awk -F/ '$2 ~ /^(benchmark-|beacon-agent-)/ { print $2 }'); do
   kubectl delete starvationevent "$event" -n "$NAMESPACE" --ignore-not-found=true
 done
 kubectl wait deployment/"$DEPLOYMENT" -n "$NAMESPACE" --for=condition=Available --timeout=60s

@@ -18,8 +18,10 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -30,6 +32,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	autoscalingv1alpha1 "github.com/jelb30/Beacon/api/v1alpha1"
+	"github.com/jelb30/Beacon/internal/observability"
 )
 
 const (
@@ -53,14 +56,28 @@ type BeaconPolicyReconciler struct {
 func (r *BeaconPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	start := time.Now()
 	log := logf.FromContext(ctx)
+	ctx, span := observability.Tracer("github.com/jelb30/Beacon/internal/controller").Start(ctx, "BeaconPolicyReconcile")
+	span.SetAttributes(
+		attribute.String("namespace", req.Namespace),
+		attribute.String("name", req.Name),
+	)
+	defer span.End()
+	defer func() {
+		observability.RecordReconcileLatency("beaconpolicy", "none", "none", phase1Decision, time.Since(start))
+	}()
 
 	policy := &autoscalingv1alpha1.BeaconPolicy{}
 	if err := r.Get(ctx, req.NamespacedName, policy); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
+		observability.RecordSpanError(span, err)
 		return ctrl.Result{}, err
 	}
+	span.SetAttributes(
+		attribute.Int64("generation", policy.Generation),
+		attribute.String("targetRef", fmt.Sprintf("%s/%s/%s", policy.Spec.TargetRef.APIVersion, policy.Spec.TargetRef.Kind, policy.Spec.TargetRef.Name)),
+	)
 
 	log.Info("Reconciling BeaconPolicy",
 		"namespace", policy.Namespace,
@@ -92,7 +109,12 @@ func (r *BeaconPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	return ctrl.Result{}, r.Status().Update(ctx, updated)
+	if err := r.Status().Update(ctx, updated); err != nil {
+		observability.RecordSpanError(span, err)
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

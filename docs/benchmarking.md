@@ -6,6 +6,8 @@ Phase 4 provides a synthetic benchmark/demo harness for Beacon's event-driven sc
 
 The benchmark measures event-to-Deployment-patch latency for synthetic `StarvationEvent` objects. The timer starts at `spec.observedAt` on the event and ends when Beacon processes the event, patches the target Deployment request, and records the reaction latency in `StarvationEvent.status.reactionLatencyMillis` and `BeaconPolicy.status.lastReactionLatencyMillis`.
 
+Phase 6 adds OpenTelemetry spans and Prometheus metrics around the same reconcile path. The benchmark still uses the Kubernetes status fields as its source of truth; it does not depend on tracing or metrics being scraped.
+
 This is useful for validating the control-loop path:
 
 1. Create a synthetic starvation event.
@@ -16,7 +18,7 @@ This is useful for validating the control-loop path:
 
 ## What It Does Not Measure Yet
 
-This phase does not measure eBPF signal generation, kernel-to-controller delivery, Prometheus scrape latency, OpenTelemetry traces, Terraform deployment time, or full application recovery time after scaling. The signal source is synthetic Kubernetes API input.
+This phase does not measure eBPF signal generation, kernel-to-controller delivery, Prometheus scrape latency, OpenTelemetry exporter delivery, Terraform deployment time, or full application recovery time after scaling. The signal source is synthetic Kubernetes API input.
 
 ## How To Run
 
@@ -47,6 +49,8 @@ kubectl get deployment sample-api -n default -o jsonpath='{.spec.template.spec.c
 kubectl get starvationevents -A
 kubectl get beaconpolicy sample-api-policy -n default -o yaml
 ```
+
+If the operator is running with Phase 6 observability, stdout spans appear in the operator terminal and custom metrics are available from the manager metrics endpoint when it is enabled.
 
 ## How To Interpret Results
 

@@ -16,7 +16,9 @@ Phase 4 adds a reproducible synthetic benchmark/demo harness that measures event
 
 Phase 5 adds `beacon-agent`, a local starvation signal source that creates `StarvationEvent` resources automatically in synthetic mode.
 
-These phases do not implement real eBPF collection, Terraform, Prometheus metrics, OpenTelemetry tracing, or production benchmarking.
+Phase 6 adds OpenTelemetry stdout tracing and custom Prometheus metrics for reconcile latency, processed events, Deployment patches, and scaling errors.
+
+These phases do not implement real eBPF collection, Terraform, or production deployment automation.
 
 ## Prerequisites
 
@@ -217,3 +219,60 @@ make agent-run
 ```
 
 Real eBPF or cgroup-based detection requires Linux node access and elevated permissions. That detector path is intentionally separated from the local synthetic mode so the operator demo remains portable.
+
+## Phase 6 Observability
+
+Beacon initializes an OpenTelemetry tracer provider at operator startup and emits local stdout spans by default. The traced hot paths include:
+
+- `BeaconPolicyReconcile`
+- `StarvationEventReconcile`
+- `fetch_starvation_event`
+- `fetch_beacon_policy`
+- `fetch_target_deployment`
+- `calculate_resource_patch`
+- `patch_deployment`
+- `update_beacon_policy_status`
+- `update_starvation_event_status`
+
+Run with tracing:
+
+```sh
+make install
+make run
+```
+
+Tracing can be disabled for noisy local runs:
+
+```sh
+BEACON_TRACING_DISABLED=true make run
+```
+
+Example stdout span excerpt:
+
+```json
+{
+  "Name": "StarvationEventReconcile",
+  "Attributes": [
+    {"Key": "policyName", "Value": {"Type": "STRING", "Value": "sample-api-policy"}},
+    {"Key": "signalType", "Value": {"Type": "STRING", "Value": "CPUStarvation"}},
+    {"Key": "scale_action", "Value": {"Type": "STRING", "Value": "CPURequestIncreased"}},
+    {"Key": "reaction_latency_ms", "Value": {"Type": "INT64", "Value": 524}}
+  ]
+}
+```
+
+Custom metrics are registered on the controller-runtime metrics endpoint:
+
+- `beacon_reconcile_latency_milliseconds`
+- `beacon_starvation_events_processed_total`
+- `beacon_vertical_scale_patches_total`
+- `beacon_vertical_scale_errors_total`
+
+The default `make run` command leaves the metrics listener disabled through `--metrics-bind-address=0`. For local Prometheus-style scraping, run:
+
+```sh
+go run ./cmd/main.go --metrics-bind-address=:8080 --metrics-secure=false
+curl -s localhost:8080/metrics | grep '^beacon_'
+```
+
+These traces and metrics make it easier to identify slow reconcile hot paths, failed target resolution, patch conflicts, and status update delays. See `docs/observability.md` for more detail.

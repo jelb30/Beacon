@@ -17,9 +17,11 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"flag"
 	"os"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -37,6 +39,7 @@ import (
 
 	autoscalingv1alpha1 "github.com/jelb30/Beacon/api/v1alpha1"
 	"github.com/jelb30/Beacon/internal/controller"
+	"github.com/jelb30/Beacon/internal/observability"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -86,6 +89,26 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+
+	tracingShutdown, err := observability.InitTracing(context.Background())
+	if err != nil {
+		setupLog.Error(err, "Failed to initialize OpenTelemetry tracing; continuing without tracing")
+	} else {
+		setupLog.Info("OpenTelemetry tracing initialized", "service", observability.ServiceName, "exporter", "stdout")
+		defer func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := tracingShutdown(ctx); err != nil {
+				setupLog.Error(err, "Failed to shut down OpenTelemetry tracing")
+			}
+		}()
+	}
+
+	if err := observability.RegisterMetrics(); err != nil {
+		setupLog.Error(err, "Failed to register Beacon metrics; continuing with controller-runtime metrics")
+	} else {
+		setupLog.Info("Beacon custom metrics registered")
+	}
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will

@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apiequality "k8s.io/apimachinery/pkg/api/equality"
@@ -37,6 +38,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	autoscalingv1alpha1 "github.com/jelb30/Beacon/api/v1alpha1"
+	"github.com/jelb30/Beacon/internal/observability"
 )
 
 const (
@@ -79,17 +81,48 @@ type StarvationEventReconciler struct {
 // +kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;update;patch
 
 func (r *StarvationEventReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	reconcileStart := time.Now()
 	log := logf.FromContext(ctx)
+	tracer := observability.Tracer("github.com/jelb30/Beacon/internal/controller")
+	ctx, span := tracer.Start(ctx, "StarvationEventReconcile")
+	span.SetAttributes(
+		attribute.String("namespace", req.Namespace),
+		attribute.String("name", req.Name),
+	)
+	defer span.End()
+
+	metricSignalType := "unknown"
+	metricSeverity := "unknown"
+	metricScaleAction := "unknown"
+	defer func() {
+		observability.RecordReconcileLatency("starvationevent", metricSignalType, metricSeverity, metricScaleAction, time.Since(reconcileStart))
+	}()
 
 	event := &autoscalingv1alpha1.StarvationEvent{}
-	if err := r.Get(ctx, req.NamespacedName, event); err != nil {
+	fetchEventCtx, fetchEventSpan := tracer.Start(ctx, "fetch_starvation_event")
+	if err := r.Get(fetchEventCtx, req.NamespacedName, event); err != nil {
 		if apierrors.IsNotFound(err) {
+			fetchEventSpan.End()
 			return ctrl.Result{}, nil
 		}
+		observability.RecordSpanError(fetchEventSpan, err)
+		observability.RecordSpanError(span, err)
+		fetchEventSpan.End()
+		observability.RecordVerticalScaleError(metricSignalType, metricSeverity, "fetch_starvation_event")
 		return ctrl.Result{}, err
 	}
+	fetchEventSpan.End()
+	metricSignalType = event.Spec.SignalType
+	metricSeverity = event.Spec.Severity
+	span.SetAttributes(
+		attribute.String("policyName", event.Spec.PolicyName),
+		attribute.String("signalType", event.Spec.SignalType),
+		attribute.String("severity", event.Spec.Severity),
+		attribute.String("containerName", event.Spec.ContainerName),
+	)
 
 	if event.Status.Processed {
+		metricScaleAction = "already_processed"
 		return ctrl.Result{}, nil
 	}
 
@@ -106,8 +139,14 @@ func (r *StarvationEventReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	policy := &autoscalingv1alpha1.BeaconPolicy{}
 	policyKey := types.NamespacedName{Namespace: event.Namespace, Name: event.Spec.PolicyName}
-	if err := r.Get(ctx, policyKey, policy); err != nil {
+	fetchPolicyCtx, fetchPolicySpan := tracer.Start(ctx, "fetch_beacon_policy")
+	if err := r.Get(fetchPolicyCtx, policyKey, policy); err != nil {
 		if apierrors.IsNotFound(err) {
+			observability.RecordSpanError(fetchPolicySpan, err)
+			observability.RecordSpanError(span, err)
+			fetchPolicySpan.End()
+			metricScaleAction = reasonBeaconPolicyNotFound
+			observability.RecordVerticalScaleError(metricSignalType, metricSeverity, metricScaleAction)
 			now := metav1.NewTime(time.Now())
 			if statusErr := r.updateEventStatus(ctx, event, eventStatusPatch{
 				now:                   now,
@@ -117,17 +156,29 @@ func (r *StarvationEventReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 				conditionMessage:      messageBeaconPolicyNotFound,
 				reactionLatencyMillis: reactionLatencyMillis(now, event.Spec.ObservedAt),
 			}); statusErr != nil {
+				observability.RecordSpanError(span, statusErr)
 				return ctrl.Result{}, statusErr
 			}
 			return ctrl.Result{RequeueAfter: targetMissingRequeue}, nil
 		}
+		observability.RecordSpanError(fetchPolicySpan, err)
+		observability.RecordSpanError(span, err)
+		fetchPolicySpan.End()
+		metricScaleAction = "fetch_beacon_policy"
+		observability.RecordVerticalScaleError(metricSignalType, metricSeverity, metricScaleAction)
 		return ctrl.Result{}, err
 	}
+	fetchPolicySpan.End()
 
 	target := resolveDeploymentTarget(event, policy)
+	span.SetAttributes(attribute.String("targetDeployment", target.name))
 	now := metav1.NewTime(time.Now())
 	latencyMillis := reactionLatencyMillis(now, event.Spec.ObservedAt)
 	if !target.supported || target.name == "" {
+		missingTargetErr := fmt.Errorf("target Deployment %q is not supported or empty", target.name)
+		observability.RecordSpanError(span, missingTargetErr)
+		metricScaleAction = scaleActionTargetDeploymentNotFound
+		observability.RecordVerticalScaleError(metricSignalType, metricSeverity, metricScaleAction)
 		if err := r.updatePolicyStatus(ctx, policy, policyStatusPatch{
 			now:                   now,
 			event:                 event,
@@ -140,6 +191,7 @@ func (r *StarvationEventReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			patchedDeployment:     target.name,
 			patchedContainer:      event.Spec.ContainerName,
 		}); err != nil {
+			observability.RecordSpanError(span, err)
 			return ctrl.Result{}, err
 		}
 		if err := r.updateEventStatus(ctx, event, eventStatusPatch{
@@ -150,14 +202,19 @@ func (r *StarvationEventReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			conditionMessage:      messageTargetDeploymentNotFound,
 			reactionLatencyMillis: latencyMillis,
 		}); err != nil {
+			observability.RecordSpanError(span, err)
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{RequeueAfter: targetMissingRequeue}, nil
 	}
 
-	deployment := &appsv1.Deployment{}
-	if err := r.Get(ctx, types.NamespacedName{Namespace: target.namespace, Name: target.name}, deployment); err != nil {
+	deploymentKey := types.NamespacedName{Namespace: target.namespace, Name: target.name}
+	scaleResult, containerMissing, err := r.patchDeploymentRequests(ctx, deploymentKey, event.Spec.ContainerName, policy.Spec, event.Spec.SignalType)
+	if err != nil {
 		if apierrors.IsNotFound(err) {
+			observability.RecordSpanError(span, err)
+			metricScaleAction = scaleActionTargetDeploymentNotFound
+			observability.RecordVerticalScaleError(metricSignalType, metricSeverity, metricScaleAction)
 			if statusErr := r.updatePolicyStatus(ctx, policy, policyStatusPatch{
 				now:                   now,
 				event:                 event,
@@ -170,6 +227,7 @@ func (r *StarvationEventReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 				patchedDeployment:     target.name,
 				patchedContainer:      event.Spec.ContainerName,
 			}); statusErr != nil {
+				observability.RecordSpanError(span, statusErr)
 				return ctrl.Result{}, statusErr
 			}
 			if statusErr := r.updateEventStatus(ctx, event, eventStatusPatch{
@@ -180,16 +238,22 @@ func (r *StarvationEventReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 				conditionMessage:      messageTargetDeploymentNotFound,
 				reactionLatencyMillis: latencyMillis,
 			}); statusErr != nil {
+				observability.RecordSpanError(span, statusErr)
 				return ctrl.Result{}, statusErr
 			}
 			return ctrl.Result{RequeueAfter: targetMissingRequeue}, nil
 		}
+		observability.RecordSpanError(span, err)
+		metricScaleAction = "patch_deployment"
+		observability.RecordVerticalScaleError(metricSignalType, metricSeverity, metricScaleAction)
 		return ctrl.Result{}, err
 	}
 
-	updatedDeployment := deployment.DeepCopy()
-	containerIndex := findContainerIndex(updatedDeployment, event.Spec.ContainerName)
-	if containerIndex < 0 {
+	if containerMissing {
+		containerErr := fmt.Errorf("target container %q was not found", event.Spec.ContainerName)
+		observability.RecordSpanError(span, containerErr)
+		metricScaleAction = scaleActionTargetContainerNotFound
+		observability.RecordVerticalScaleError(metricSignalType, metricSeverity, metricScaleAction)
 		if err := r.updatePolicyStatus(ctx, policy, policyStatusPatch{
 			now:                   now,
 			event:                 event,
@@ -202,6 +266,7 @@ func (r *StarvationEventReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			patchedDeployment:     target.name,
 			patchedContainer:      event.Spec.ContainerName,
 		}); err != nil {
+			observability.RecordSpanError(span, err)
 			return ctrl.Result{}, err
 		}
 		if err := r.updateEventStatus(ctx, event, eventStatusPatch{
@@ -212,30 +277,25 @@ func (r *StarvationEventReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 			conditionMessage:      messageTargetContainerNotFound,
 			reactionLatencyMillis: latencyMillis,
 		}); err != nil {
+			observability.RecordSpanError(span, err)
 			return ctrl.Result{}, err
 		}
 		return ctrl.Result{RequeueAfter: targetMissingRequeue}, nil
 	}
 
-	scaleResult, err := calculateScaleResult(
-		updatedDeployment.Spec.Template.Spec.Containers[containerIndex],
-		policy.Spec,
-		event.Spec.SignalType,
-	)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	if scaleResult.shouldPatch {
-		applyScaleResult(&updatedDeployment.Spec.Template.Spec.Containers[containerIndex], scaleResult)
-		if err := r.Update(ctx, updatedDeployment); err != nil {
-			return ctrl.Result{}, err
-		}
-	}
-
 	now = metav1.NewTime(time.Now())
 	latencyMillis = reactionLatencyMillis(now, event.Spec.ObservedAt)
 	outcome := outcomeForScaleResult(scaleResult, now)
+	metricScaleAction = scaleResult.action
+	span.SetAttributes(
+		attribute.String("previous_cpu_request", scaleResult.previousCPU),
+		attribute.String("new_cpu_request", scaleResult.newCPU),
+		attribute.String("previous_memory_request", scaleResult.previousMemory),
+		attribute.String("new_memory_request", scaleResult.newMemory),
+		attribute.String("scale_action", scaleResult.action),
+		attribute.Int64("reaction_latency_ms", latencyMillis),
+		attribute.String("decision", outcome.policyDecision),
+	)
 	if err := r.updatePolicyStatus(ctx, policy, policyStatusPatch{
 		now:                   now,
 		event:                 event,
@@ -253,6 +313,8 @@ func (r *StarvationEventReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		newMemoryRequest:      scaleResult.newMemory,
 		scaleAction:           scaleResult.action,
 	}); err != nil {
+		observability.RecordSpanError(span, err)
+		observability.RecordVerticalScaleError(metricSignalType, metricSeverity, metricScaleAction)
 		return ctrl.Result{}, err
 	}
 
@@ -265,7 +327,14 @@ func (r *StarvationEventReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		conditionMessage:      outcome.eventConditionMessage,
 		reactionLatencyMillis: latencyMillis,
 	}); err != nil {
+		observability.RecordSpanError(span, err)
+		observability.RecordVerticalScaleError(metricSignalType, metricSeverity, metricScaleAction)
 		return ctrl.Result{}, err
+	}
+
+	observability.RecordStarvationEventProcessed(metricSignalType, metricSeverity, metricScaleAction)
+	if scaleResult.shouldPatch {
+		observability.RecordVerticalScalePatch(metricSignalType, metricSeverity, metricScaleAction)
 	}
 
 	return ctrl.Result{}, nil
@@ -367,6 +436,97 @@ func findContainerIndex(deployment *appsv1.Deployment, containerName string) int
 		}
 	}
 	return -1
+}
+
+func (r *StarvationEventReconciler) patchDeploymentRequests(
+	ctx context.Context,
+	key types.NamespacedName,
+	containerName string,
+	policy autoscalingv1alpha1.BeaconPolicySpec,
+	signalType string,
+) (scaleResult, bool, error) {
+	var result scaleResult
+	var containerMissing bool
+
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		tracer := observability.Tracer("github.com/jelb30/Beacon/internal/controller")
+		deployment := &appsv1.Deployment{}
+		fetchCtx, fetchSpan := tracer.Start(ctx, "fetch_target_deployment")
+		fetchSpan.SetAttributes(
+			attribute.String("namespace", key.Namespace),
+			attribute.String("targetDeployment", key.Name),
+		)
+		if err := r.Get(fetchCtx, key, deployment); err != nil {
+			observability.RecordSpanError(fetchSpan, err)
+			fetchSpan.End()
+			return err
+		}
+		fetchSpan.End()
+
+		updatedDeployment := deployment.DeepCopy()
+		_, calcSpan := tracer.Start(ctx, "calculate_resource_patch")
+		calcSpan.SetAttributes(
+			attribute.String("targetDeployment", key.Name),
+			attribute.String("containerName", containerName),
+			attribute.String("signalType", signalType),
+		)
+		containerIndex := findContainerIndex(updatedDeployment, containerName)
+		if containerIndex < 0 {
+			containerMissing = true
+			result = scaleResult{}
+			observability.RecordSpanError(calcSpan, fmt.Errorf("target container %q was not found", containerName))
+			calcSpan.End()
+			return nil
+		}
+		containerMissing = false
+
+		nextResult, err := calculateScaleResult(
+			updatedDeployment.Spec.Template.Spec.Containers[containerIndex],
+			policy,
+			signalType,
+		)
+		if err != nil {
+			observability.RecordSpanError(calcSpan, err)
+			calcSpan.End()
+			return err
+		}
+
+		result = nextResult
+		calcSpan.SetAttributes(
+			attribute.String("previous_cpu_request", nextResult.previousCPU),
+			attribute.String("new_cpu_request", nextResult.newCPU),
+			attribute.String("previous_memory_request", nextResult.previousMemory),
+			attribute.String("new_memory_request", nextResult.newMemory),
+			attribute.String("scale_action", nextResult.action),
+		)
+		calcSpan.End()
+
+		patchCtx, patchSpan := tracer.Start(ctx, "patch_deployment")
+		patchSpan.SetAttributes(
+			attribute.String("namespace", key.Namespace),
+			attribute.String("targetDeployment", key.Name),
+			attribute.String("containerName", containerName),
+			attribute.String("scale_action", nextResult.action),
+			attribute.Bool("should_patch", nextResult.shouldPatch),
+		)
+		defer patchSpan.End()
+		if !nextResult.shouldPatch {
+			return nil
+		}
+
+		applyScaleResult(&updatedDeployment.Spec.Template.Spec.Containers[containerIndex], nextResult)
+		if err := r.Update(patchCtx, updatedDeployment); err != nil {
+			observability.RecordSpanError(patchSpan, err)
+			return err
+		}
+
+		return nil
+	})
+	if err != nil {
+		return scaleResult{}, false, err
+	}
+
+	return result, containerMissing, nil
 }
 
 func calculateScaleResult(
@@ -593,9 +753,20 @@ func (r *StarvationEventReconciler) updatePolicyStatus(
 	patch policyStatusPatch,
 ) error {
 	key := types.NamespacedName{Name: policy.Name, Namespace: policy.Namespace}
-	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	ctx, span := observability.Tracer("github.com/jelb30/Beacon/internal/controller").Start(ctx, "update_beacon_policy_status")
+	span.SetAttributes(
+		attribute.String("namespace", policy.Namespace),
+		attribute.String("name", policy.Name),
+		attribute.String("decision", patch.lastDecision),
+		attribute.String("scale_action", patch.scaleAction),
+		attribute.Int64("reaction_latency_ms", patch.reactionLatencyMillis),
+	)
+	defer span.End()
+
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		latest := &autoscalingv1alpha1.BeaconPolicy{}
 		if err := r.Get(ctx, key, latest); err != nil {
+			observability.RecordSpanError(span, err)
 			return err
 		}
 
@@ -631,6 +802,12 @@ func (r *StarvationEventReconciler) updatePolicyStatus(
 
 		return r.Status().Update(ctx, updated)
 	})
+	if err != nil {
+		observability.RecordSpanError(span, err)
+		return err
+	}
+
+	return nil
 }
 
 func (r *StarvationEventReconciler) updateEventStatus(
@@ -639,9 +816,20 @@ func (r *StarvationEventReconciler) updateEventStatus(
 	patch eventStatusPatch,
 ) error {
 	key := types.NamespacedName{Name: event.Name, Namespace: event.Namespace}
-	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+	ctx, span := observability.Tracer("github.com/jelb30/Beacon/internal/controller").Start(ctx, "update_starvation_event_status")
+	span.SetAttributes(
+		attribute.String("namespace", event.Namespace),
+		attribute.String("name", event.Name),
+		attribute.Bool("processed", patch.processed),
+		attribute.String("condition_reason", patch.conditionReason),
+		attribute.Int64("reaction_latency_ms", patch.reactionLatencyMillis),
+	)
+	defer span.End()
+
+	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		latest := &autoscalingv1alpha1.StarvationEvent{}
 		if err := r.Get(ctx, key, latest); err != nil {
+			observability.RecordSpanError(span, err)
 			return err
 		}
 
@@ -668,6 +856,12 @@ func (r *StarvationEventReconciler) updateEventStatus(
 
 		return r.Status().Update(ctx, updated)
 	})
+	if err != nil {
+		observability.RecordSpanError(span, err)
+		return err
+	}
+
+	return nil
 }
 
 func reactionLatencyMillis(now metav1.Time, observedAt metav1.Time) int64 {
