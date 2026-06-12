@@ -125,21 +125,6 @@ func (r *BeaconPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func phase1StatusCurrent(policy *autoscalingv1alpha1.BeaconPolicy) bool {
-	ready := meta.FindStatusCondition(policy.Status.Conditions, autoscalingv1alpha1.BeaconPolicyReadyCondition)
-	if ready == nil {
-		return false
-	}
-
-	return policy.Status.ObservedGeneration == policy.Generation &&
-		policy.Status.LastReconcileTime != nil &&
-		policy.Status.LastDecision == phase1Decision &&
-		ready.Status == metav1.ConditionTrue &&
-		ready.ObservedGeneration == policy.Generation &&
-		ready.Reason == phase1ReadyReason &&
-		ready.Message == phase1ReadyMessage
-}
-
 func beaconPolicyReadyForCurrentGeneration(policy *autoscalingv1alpha1.BeaconPolicy) bool {
 	ready := meta.FindStatusCondition(policy.Status.Conditions, autoscalingv1alpha1.BeaconPolicyReadyCondition)
 	if ready == nil {

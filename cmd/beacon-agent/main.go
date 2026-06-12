@@ -115,14 +115,24 @@ func main() {
 		"interval", interval.String())
 
 	if once {
-		if err := detectAndCreate(ctx, detector, k8sClient, log); err != nil {
+		runner := agentRunner{
+			detector:  detector,
+			k8sClient: k8sClient,
+			log:       log,
+		}
+		if err := runner.detectAndCreate(ctx); err != nil {
 			log.Error(err, "Failed to create StarvationEvent")
 			os.Exit(1)
 		}
 		return
 	}
 
-	if err := run(ctx, detector, k8sClient, interval, log); err != nil {
+	runner := agentRunner{
+		detector:  detector,
+		k8sClient: k8sClient,
+		log:       log,
+	}
+	if err := runner.run(ctx, interval); err != nil {
 		log.Error(err, "beacon-agent stopped with an error")
 		os.Exit(1)
 	}
@@ -136,8 +146,14 @@ func buildConfig(kubeconfig string) (*rest.Config, error) {
 	return ctrl.GetConfig()
 }
 
-func run(ctx context.Context, detector agent.Detector, k8sClient client.Client, interval time.Duration, log logr.Logger) error {
-	if err := detectAndCreate(ctx, detector, k8sClient, log); err != nil {
+type agentRunner struct {
+	detector  agent.Detector
+	k8sClient client.Client
+	log       logr.Logger
+}
+
+func (r agentRunner) run(ctx context.Context, interval time.Duration) error {
+	if err := r.detectAndCreate(ctx); err != nil {
 		return err
 	}
 
@@ -149,35 +165,35 @@ func run(ctx context.Context, detector agent.Detector, k8sClient client.Client, 
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			if err := detectAndCreate(ctx, detector, k8sClient, log); err != nil {
+			if err := r.detectAndCreate(ctx); err != nil {
 				return err
 			}
 		}
 	}
 }
 
-func detectAndCreate(ctx context.Context, detector agent.Detector, k8sClient client.Client, log logr.Logger) error {
-	detection, err := detector.Detect(ctx)
+func (r agentRunner) detectAndCreate(ctx context.Context) error {
+	detection, err := r.detector.Detect(ctx)
 	if err != nil {
 		return err
 	}
 	if detection == nil {
-		log.Info("Detector returned no starvation signal", "detector", detector.Name())
+		r.log.Info("Detector returned no starvation signal", "detector", r.detector.Name())
 		return nil
 	}
 
-	if err := agent.CreateStarvationEvent(ctx, k8sClient, *detection); err != nil {
+	if err := agent.CreateStarvationEvent(ctx, r.k8sClient, *detection); err != nil {
 		return err
 	}
 
-	log.Info("Created StarvationEvent",
-		"detector", detector.Name(),
+	r.log.Info("Created StarvationEvent",
+		"detector", r.detector.Name(),
 		"namespace", detection.Namespace,
 		"policy", detection.PolicyName,
 		"target", detection.TargetRef.Name,
 		"container", detection.ContainerName,
 		"signal", detection.SignalType,
 		"severity", detection.Severity,
-		"observedAt", detection.ObservedAt.Time.Format(time.RFC3339))
+		"observedAt", detection.ObservedAt.Format(time.RFC3339))
 	return nil
 }

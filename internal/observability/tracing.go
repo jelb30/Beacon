@@ -29,6 +29,7 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
+	"go.opentelemetry.io/otel/trace/noop"
 )
 
 const (
@@ -44,7 +45,7 @@ func InitTracing(ctx context.Context) (func(context.Context) error, error) {
 // InitTracingWithWriter starts tracing with a test writer.
 func InitTracingWithWriter(_ context.Context, writer io.Writer) (func(context.Context) error, error) {
 	if tracingDisabled() {
-		otel.SetTracerProvider(trace.NewNoopTracerProvider())
+		otel.SetTracerProvider(noop.NewTracerProvider())
 		return func(context.Context) error { return nil }, nil
 	}
 

@@ -133,7 +133,7 @@ func starvationEventName(detection Detection) string {
 		signal = "starvation"
 	}
 
-	return fmt.Sprintf("beacon-agent-%s-%d-%s", signal, detection.ObservedAt.Time.Unix(), randomSuffix())
+	return fmt.Sprintf("beacon-agent-%s-%d-%s", signal, detection.ObservedAt.Unix(), randomSuffix())
 }
 
 func randomSuffix() string {

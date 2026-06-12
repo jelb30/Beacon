@@ -65,6 +65,7 @@ const (
 	messageTargetContainerNotFound          = "Target container was not found in the target Deployment."
 	messageBeaconPolicyNotFound             = "Referenced BeaconPolicy was not found."
 	messageNoop                             = "Starvation event was processed without a scaling patch."
+	metricUnknown                           = "unknown"
 )
 
 const targetMissingRequeue = 5 * time.Second
@@ -91,9 +92,9 @@ func (r *StarvationEventReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	)
 	defer span.End()
 
-	metricSignalType := "unknown"
-	metricSeverity := "unknown"
-	metricScaleAction := "unknown"
+	metricSignalType := metricUnknown
+	metricSeverity := metricUnknown
+	metricScaleAction := metricUnknown
 	defer func() {
 		observability.RecordReconcileLatency("starvationevent", metricSignalType, metricSeverity, metricScaleAction, time.Since(reconcileStart))
 	}()

@@ -332,31 +332,31 @@ func testContainer(name string, cpuRequest string, memoryRequest string) corev1.
 }
 
 func deleteStarvationEventIfExists(ctx context.Context, key types.NamespacedName) {
-	resource := &autoscalingv1alpha1.StarvationEvent{}
-	err := k8sClient.Get(ctx, key, resource)
+	event := &autoscalingv1alpha1.StarvationEvent{}
+	err := k8sClient.Get(ctx, key, event)
 	if errors.IsNotFound(err) {
 		return
 	}
 	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+	Expect(k8sClient.Delete(ctx, event)).To(Succeed())
 }
 
 func deleteBeaconPolicyIfExists(ctx context.Context, key types.NamespacedName) {
-	resource := &autoscalingv1alpha1.BeaconPolicy{}
-	err := k8sClient.Get(ctx, key, resource)
+	policy := &autoscalingv1alpha1.BeaconPolicy{}
+	err := k8sClient.Get(ctx, key, policy)
 	if errors.IsNotFound(err) {
 		return
 	}
 	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+	Expect(k8sClient.Delete(ctx, policy)).To(Succeed())
 }
 
 func deleteDeploymentIfExists(ctx context.Context, key types.NamespacedName) {
-	resource := &appsv1.Deployment{}
-	err := k8sClient.Get(ctx, key, resource)
+	deployment := &appsv1.Deployment{}
+	err := k8sClient.Get(ctx, key, deployment)
 	if errors.IsNotFound(err) {
 		return
 	}
 	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+	Expect(k8sClient.Delete(ctx, deployment)).To(Succeed())
 }
