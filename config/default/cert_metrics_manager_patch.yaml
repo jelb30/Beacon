@@ -1,6 +1,6 @@
-# This patch adds the args, volumes, and ports to allow the manager to use the metrics-server certs.
+# Add metrics-server certificates to the manager.
 
-# Add the volumeMount for the metrics-server certs
+# Mount the metrics-server certs.
 - op: add
   path: /spec/template/spec/containers/0/volumeMounts/-
   value:
@@ -8,12 +8,12 @@
     name: metrics-certs
     readOnly: true
 
-# Add the --metrics-cert-path argument for the metrics server
+# Point the metrics server at the cert path.
 - op: add
   path: /spec/template/spec/containers/0/args/-
   value: --metrics-cert-path=/tmp/k8s-metrics-server/metrics-certs
 
-# Add the metrics-server certs volume configuration
+# Add the cert Secret volume.
 - op: add
   path: /spec/template/spec/volumes/-
   value:

@@ -68,7 +68,7 @@ var (
 	)
 )
 
-// RegisterMetrics registers Beacon custom metrics with controller-runtime's metrics registry.
+// RegisterMetrics adds Beacon metrics to the manager registry.
 func RegisterMetrics() error {
 	registerMetricsOnce.Do(func() {
 		registerMetricsErr = registerCollectors(
@@ -102,7 +102,7 @@ func RecordReconcileLatency(controller string, signalType string, severity strin
 	).Observe(float64(duration.Milliseconds()))
 }
 
-// RecordStarvationEventProcessed increments the processed-event counter.
+// RecordStarvationEventProcessed counts a processed starvation event.
 func RecordStarvationEventProcessed(signalType string, severity string, scaleAction string) {
 	starvationEventsProcessed.WithLabelValues(
 		metricLabel(signalType),
@@ -111,7 +111,7 @@ func RecordStarvationEventProcessed(signalType string, severity string, scaleAct
 	).Inc()
 }
 
-// RecordVerticalScalePatch increments the successful patch counter.
+// RecordVerticalScalePatch counts a Deployment patch.
 func RecordVerticalScalePatch(signalType string, severity string, scaleAction string) {
 	verticalScalePatches.WithLabelValues(
 		metricLabel(signalType),
@@ -120,7 +120,7 @@ func RecordVerticalScalePatch(signalType string, severity string, scaleAction st
 	).Inc()
 }
 
-// RecordVerticalScaleError increments the vertical scale error counter.
+// RecordVerticalScaleError counts a scaling error.
 func RecordVerticalScaleError(signalType string, severity string, scaleAction string) {
 	verticalScaleErrors.WithLabelValues(
 		metricLabel(signalType),

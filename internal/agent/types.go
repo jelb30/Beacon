@@ -41,7 +41,7 @@ const (
 	defaultKind       = "Deployment"
 )
 
-// Detection is a normalized starvation signal emitted by a Beacon detector.
+// Detection is one starvation signal from a detector.
 type Detection struct {
 	PolicyName    string
 	Namespace     string
@@ -54,13 +54,13 @@ type Detection struct {
 	Source        string
 }
 
-// Detector observes a starvation signal source and returns one normalized detection.
+// Detector reads a signal source and returns one detection.
 type Detector interface {
 	Detect(ctx context.Context) (*Detection, error)
 	Name() string
 }
 
-// DetectorConfig contains the common target and policy fields used by detector modes.
+// DetectorConfig holds the shared settings for detector modes.
 type DetectorConfig struct {
 	Namespace     string
 	PolicyName    string
@@ -70,7 +70,7 @@ type DetectorConfig struct {
 	Severity      string
 }
 
-// NewDetector selects a detector implementation for the requested mode.
+// NewDetector returns the detector for the selected mode.
 func NewDetector(mode string, config DetectorConfig) (Detector, error) {
 	switch strings.ToLower(strings.TrimSpace(mode)) {
 	case "", "synthetic":
@@ -82,7 +82,7 @@ func NewDetector(mode string, config DetectorConfig) (Detector, error) {
 	}
 }
 
-// CreateStarvationEvent persists a StarvationEvent for a detector result.
+// CreateStarvationEvent writes a detection as a StarvationEvent.
 func CreateStarvationEvent(ctx context.Context, c client.Client, detection Detection) error {
 	event := starvationEventForDetection(detection)
 	if err := c.Create(ctx, event); err != nil {

@@ -30,10 +30,8 @@ spec:
         control-plane: controller-manager
         app.kubernetes.io/name: beacon
     spec:
-      # TODO(user): Uncomment the following code to configure the nodeAffinity expression
-      # according to the platforms which are supported by your solution.
-      # It is considered best practice to support multiple architectures. You can
-      # build your manager image using the makefile target docker-buildx.
+      # Optional node affinity for supported image platforms.
+      # Use make docker-buildx when publishing multi-arch images.
       # affinity:
       #   nodeAffinity:
       #     requiredDuringSchedulingIgnoredDuringExecution:
@@ -51,9 +49,7 @@ spec:
       #             values:
       #               - linux
       securityContext:
-        # Projects are configured by default to adhere to the "restricted" Pod Security Standards.
-        # This ensures that deployments meet the highest security requirements for Kubernetes.
-        # For more details, see: https://kubernetes.io/docs/concepts/security/pod-security-standards/#restricted
+        # Run with the restricted Pod Security profile.
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
@@ -87,8 +83,7 @@ spec:
             port: 8081
           initialDelaySeconds: 5
           periodSeconds: 10
-        # TODO(user): Configure the resources accordingly based on the project requirements.
-        # More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
+        # Tune these requests and limits for the target cluster.
         resources:
           limits:
             cpu: 500m

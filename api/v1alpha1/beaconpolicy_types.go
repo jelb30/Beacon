@@ -22,7 +22,7 @@ import (
 
 const BeaconPolicyReadyCondition = "Ready"
 
-// BeaconPolicyTargetRef identifies the workload controlled by a BeaconPolicy.
+// BeaconPolicyTargetRef points to the workload Beacon can scale.
 type BeaconPolicyTargetRef struct {
 	// +kubebuilder:validation:Required
 	APIVersion string `json:"apiVersion"`
@@ -37,7 +37,7 @@ type BeaconPolicyTargetRef struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-// BeaconPolicySpec defines the desired state of BeaconPolicy
+// BeaconPolicySpec is the scaling policy users configure.
 type BeaconPolicySpec struct {
 	// +kubebuilder:validation:Required
 	TargetRef BeaconPolicyTargetRef `json:"targetRef"`
@@ -68,7 +68,7 @@ type BeaconPolicySpec struct {
 	ReactionLatencyBudgetMillis int32 `json:"reactionLatencyBudgetMillis"`
 }
 
-// BeaconPolicyStatus defines the observed state of BeaconPolicy.
+// BeaconPolicyStatus records the last Beacon decision and patch result.
 type BeaconPolicyStatus struct {
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
@@ -131,26 +131,26 @@ type BeaconPolicyStatus struct {
 // +kubebuilder:printcolumn:name="LatencyMs",type=integer,JSONPath=".status.lastReactionLatencyMillis"
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=".status.conditions[?(@.type=='Ready')].status"
 
-// BeaconPolicy is the Schema for the beaconpolicies API
+// BeaconPolicy defines how Beacon should react to starvation signals.
 type BeaconPolicy struct {
 	metav1.TypeMeta `json:",inline"`
 
-	// metadata is a standard object metadata
+	// metadata is standard Kubernetes metadata.
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
-	// spec defines the desired state of BeaconPolicy
+	// spec contains the requested scaling policy.
 	// +required
 	Spec BeaconPolicySpec `json:"spec"`
 
-	// status defines the observed state of BeaconPolicy
+	// status contains Beacon's latest observed result.
 	// +optional
 	Status BeaconPolicyStatus `json:"status,omitzero"`
 }
 
 // +kubebuilder:object:root=true
 
-// BeaconPolicyList contains a list of BeaconPolicy
+// BeaconPolicyList contains BeaconPolicy resources.
 type BeaconPolicyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitzero"`

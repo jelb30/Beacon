@@ -36,12 +36,12 @@ const (
 	tracingDisabledEnv = "BEACON_TRACING_DISABLED"
 )
 
-// InitTracing initializes a stdout OpenTelemetry tracer provider for local development.
+// InitTracing starts stdout tracing for local runs.
 func InitTracing(ctx context.Context) (func(context.Context) error, error) {
 	return InitTracingWithWriter(ctx, os.Stdout)
 }
 
-// InitTracingWithWriter initializes tracing with a caller-provided writer for tests.
+// InitTracingWithWriter starts tracing with a test writer.
 func InitTracingWithWriter(_ context.Context, writer io.Writer) (func(context.Context) error, error) {
 	if tracingDisabled() {
 		otel.SetTracerProvider(trace.NewNoopTracerProvider())
@@ -68,12 +68,12 @@ func InitTracingWithWriter(_ context.Context, writer io.Writer) (func(context.Co
 	return provider.Shutdown, nil
 }
 
-// Tracer returns a Beacon tracer for the supplied instrumentation name.
+// Tracer returns a Beacon tracer.
 func Tracer(instrumentationName string) trace.Tracer {
 	return otel.Tracer(instrumentationName)
 }
 
-// RecordSpanError records err and marks the span as failed.
+// RecordSpanError marks a span as failed when err is set.
 func RecordSpanError(span trace.Span, err error) {
 	if err == nil {
 		return

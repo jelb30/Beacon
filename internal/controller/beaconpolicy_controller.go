@@ -41,7 +41,7 @@ const (
 	phase1ReadyMessage = "Beacon operator scaffold is installed and reconciling BeaconPolicy resources."
 )
 
-// BeaconPolicyReconciler reconciles a BeaconPolicy object
+// BeaconPolicyReconciler keeps BeaconPolicy status current.
 type BeaconPolicyReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
@@ -117,7 +117,7 @@ func (r *BeaconPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	return ctrl.Result{}, nil
 }
 
-// SetupWithManager sets up the controller with the Manager.
+// SetupWithManager registers the BeaconPolicy controller.
 func (r *BeaconPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&autoscalingv1alpha1.BeaconPolicy{}).

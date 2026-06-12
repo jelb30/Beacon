@@ -30,7 +30,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: BeaconPolicy is the Schema for the beaconpolicies API
+        description: BeaconPolicy defines how Beacon should react to starvation signals.
         properties:
           apiVersion:
             description: |-
@@ -50,7 +50,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: spec defines the desired state of BeaconPolicy
+            description: spec contains the requested scaling policy.
             properties:
               maxCPURequest:
                 type: string
@@ -74,8 +74,8 @@ spec:
                 minimum: 1
                 type: integer
               targetRef:
-                description: BeaconPolicyTargetRef identifies the workload controlled
-                  by a BeaconPolicy.
+                description: BeaconPolicyTargetRef points to the workload Beacon can
+                  scale.
                 properties:
                   apiVersion:
                     type: string
@@ -99,7 +99,7 @@ spec:
             - targetRef
             type: object
           status:
-            description: status defines the observed state of BeaconPolicy
+            description: status contains Beacon's latest observed result.
             properties:
               conditions:
                 items:

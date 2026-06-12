@@ -1,14 +1,11 @@
-# Adds namespace to all resources.
+# Namespace applied to all resources.
 namespace: beacon-system
 
-# Value of this field is prepended to the
-# names of all resources, e.g. a deployment named
-# "wordpress" becomes "alices-wordpress".
-# Note that it should also match with the prefix (text before '-') of the namespace
-# field above.
+# Prefix added to resource names.
+# Keep it aligned with the namespace prefix.
 namePrefix: beacon-
 
-# Labels to add to all resources and selectors.
+# Optional labels for all resources and selectors.
 #labels:
 #- includeSelectors: true
 #  pairs:
@@ -18,44 +15,37 @@ resources:
 - ../crd
 - ../rbac
 - ../manager
-# [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
-# crd/kustomization.yaml
+# [WEBHOOK] Enable all WEBHOOK blocks, including config/crd/kustomization.yaml.
 #- ../webhook
-# [CERTMANAGER] To enable cert-manager, uncomment all sections with 'CERTMANAGER'. 'WEBHOOK' components are required.
+# [CERTMANAGER] Enable all CERTMANAGER blocks. WEBHOOK blocks are required.
 #- ../certmanager
 # [METRICS] Expose the controller manager metrics service.
 - metrics_service.yaml
-# [NETWORK POLICY] Protect the /metrics endpoint and Webhook Server with NetworkPolicy.
-# Only Pod(s) running a namespace labeled with 'metrics: enabled' will be able to gather the metrics.
-# Only CR(s) which requires webhooks and are applied on namespaces labeled with 'webhooks: enabled' will
-# be able to communicate with the Webhook Server.
+# [NETWORK POLICY] Restrict access to metrics and webhook endpoints.
+# Metrics callers need namespace label 'metrics: enabled'.
+# Webhook callers need namespace label 'webhooks: enabled'.
 #- ../network-policy
 
-# Uncomment the patches line if you enable Metrics
+# Patches used by the enabled metrics setup.
 patches:
-# [METRICS] The following patch will enable the metrics endpoint using HTTPS and the port :8443.
-# More info: https://book.kubebuilder.io/reference/metrics
+# [METRICS] Serve metrics over HTTPS on :8443.
 - path: manager_metrics_patch.yaml
   target:
     kind: Deployment
 
-# Uncomment the patches line if you enable Metrics and CertManager
-# [METRICS-WITH-CERTS] To enable metrics protected with certManager, uncomment the following line.
-# This patch will protect the metrics with certManager self-signed certs.
+# [METRICS-WITH-CERTS] Use cert-manager certificates for metrics.
 #- path: cert_metrics_manager_patch.yaml
 #  target:
 #    kind: Deployment
 
-# [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix including the one in
-# crd/kustomization.yaml
+# [WEBHOOK] Enable all WEBHOOK blocks, including config/crd/kustomization.yaml.
 #- path: manager_webhook_patch.yaml
 #  target:
 #    kind: Deployment
 
-# [CERTMANAGER] To enable cert-manager, uncomment all sections with 'CERTMANAGER' prefix.
-# Uncomment the following replacements to add the cert-manager CA injection annotations
+# [CERTMANAGER] Replacements for cert-manager CA injection.
 #replacements:
-# - source: # Uncomment the following block to enable certificates for metrics
+# - source: # Metrics certificate service name.
 #     kind: Service
 #     version: v1
 #     name: controller-manager-metrics-service
@@ -93,11 +83,11 @@ patches:
 #         index: 1
 #         create: true
 
-# - source: # Uncomment the following block if you have any webhook
+# - source: # Webhook certificate service name.
 #     kind: Service
 #     version: v1
 #     name: webhook-service
-#     fieldPath: .metadata.name # Name of the service
+#     fieldPath: .metadata.name # Service name.
 #   targets:
 #     - select:
 #         kind: Certificate
@@ -115,7 +105,7 @@ patches:
 #     kind: Service
 #     version: v1
 #     name: webhook-service
-#     fieldPath: .metadata.namespace # Namespace of the service
+#     fieldPath: .metadata.namespace # Service namespace.
 #   targets:
 #     - select:
 #         kind: Certificate
@@ -130,12 +120,12 @@ patches:
 #         index: 1
 #         create: true
 
-# - source: # Uncomment the following block if you have a ValidatingWebhook (--programmatic-validation)
+# - source: # ValidatingWebhook CA namespace.
 #     kind: Certificate
 #     group: cert-manager.io
 #     version: v1
-#     name: serving-cert # This name should match the one in certificate.yaml
-#     fieldPath: .metadata.namespace # Namespace of the certificate CR
+#     name: serving-cert # Match certificate.yaml.
+#     fieldPath: .metadata.namespace # Certificate namespace.
 #   targets:
 #     - select:
 #         kind: ValidatingWebhookConfiguration
@@ -161,12 +151,12 @@ patches:
 #         index: 1
 #         create: true
 
-# - source: # Uncomment the following block if you have a DefaultingWebhook (--defaulting )
+# - source: # MutatingWebhook CA namespace.
 #     kind: Certificate
 #     group: cert-manager.io
 #     version: v1
 #     name: serving-cert
-#     fieldPath: .metadata.namespace # Namespace of the certificate CR
+#     fieldPath: .metadata.namespace # Certificate namespace.
 #   targets:
 #     - select:
 #         kind: MutatingWebhookConfiguration
@@ -192,13 +182,13 @@ patches:
 #         index: 1
 #         create: true
 
-# - source: # Uncomment the following block if you have a ConversionWebhook (--conversion)
+# - source: # ConversionWebhook CA namespace.
 #     kind: Certificate
 #     group: cert-manager.io
 #     version: v1
 #     name: serving-cert
-#     fieldPath: .metadata.namespace # Namespace of the certificate CR
-#   targets: # Do not remove or uncomment the following scaffold marker; required to generate code for target CRD.
+#     fieldPath: .metadata.namespace # Certificate namespace.
+#   targets: # Keep the scaffold marker below.
 # +kubebuilder:scaffold:crdkustomizecainjectionns
 # - source:
 #     kind: Certificate
@@ -206,5 +196,5 @@ patches:
 #     version: v1
 #     name: serving-cert
 #     fieldPath: .metadata.name
-#   targets: # Do not remove or uncomment the following scaffold marker; required to generate code for target CRD.
+#   targets: # Keep the scaffold marker below.
 # +kubebuilder:scaffold:crdkustomizecainjectionname

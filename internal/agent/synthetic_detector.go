@@ -27,22 +27,22 @@ import (
 
 const syntheticDetectorName = "synthetic"
 
-// SyntheticDetector emits deterministic starvation signals for local development.
+// SyntheticDetector emits local test starvation signals.
 type SyntheticDetector struct {
 	config DetectorConfig
 }
 
-// NewSyntheticDetector creates a detector that works on macOS, kind, and any local cluster.
+// NewSyntheticDetector creates a detector for local demos and tests.
 func NewSyntheticDetector(config DetectorConfig) *SyntheticDetector {
 	return &SyntheticDetector{config: config}
 }
 
-// Name returns the detector mode name.
+// Name returns the detector mode.
 func (d *SyntheticDetector) Name() string {
 	return syntheticDetectorName
 }
 
-// Detect emits one synthetic starvation detection.
+// Detect returns one synthetic starvation signal.
 func (d *SyntheticDetector) Detect(ctx context.Context) (*Detection, error) {
 	select {
 	case <-ctx.Done():

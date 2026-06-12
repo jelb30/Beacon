@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package v1alpha1 contains API Schema definitions for the autoscaling v1alpha1 API group.
+// Package v1alpha1 contains the Beacon autoscaling API.
 // +kubebuilder:object:generate=true
 // +groupName=autoscaling.beacon.dev
 package v1alpha1
@@ -25,16 +25,15 @@ import (
 )
 
 var (
-	// SchemeGroupVersion is group version used to register these objects.
-	// This name is used by applyconfiguration generators (e.g. controller-gen).
+	// SchemeGroupVersion registers Beacon autoscaling objects.
 	SchemeGroupVersion = schema.GroupVersion{Group: "autoscaling.beacon.dev", Version: "v1alpha1"}
 
-	// GroupVersion is an alias for SchemeGroupVersion, for backward compatibility.
+	// GroupVersion is kept as an alias for callers.
 	GroupVersion = SchemeGroupVersion
 
-	// SchemeBuilder is used to add go types to the GroupVersionKind scheme.
+	// SchemeBuilder adds API types to the scheme.
 	SchemeBuilder = &scheme.Builder{GroupVersion: SchemeGroupVersion}
 
-	// AddToScheme adds the types in this group-version to the given scheme.
+	// AddToScheme registers these API types with a scheme.
 	AddToScheme = SchemeBuilder.AddToScheme
 )

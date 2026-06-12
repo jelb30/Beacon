@@ -1,4 +1,4 @@
-## Append samples of your project ##
+## Beacon sample resources ##
 resources:
 - sample-api-deployment.yaml
 - autoscaling_v1alpha1_beaconpolicy.yaml

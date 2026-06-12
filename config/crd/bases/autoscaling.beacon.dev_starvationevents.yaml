@@ -33,7 +33,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: StarvationEvent is the Schema for the starvationevents API
+        description: StarvationEvent is a starvation signal for Beacon to process.
         properties:
           apiVersion:
             description: |-
@@ -53,7 +53,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: spec defines the desired state of StarvationEvent
+            description: spec contains the starvation signal details.
             properties:
               containerName:
                 type: string
@@ -77,8 +77,8 @@ spec:
                 - MemoryStarvation
                 type: string
               targetRef:
-                description: StarvationEventTargetRef identifies the workload associated
-                  with a starvation signal.
+                description: StarvationEventTargetRef points to the workload that
+                  reported starvation.
                 properties:
                   apiVersion:
                     type: string
@@ -102,7 +102,7 @@ spec:
             - targetRef
             type: object
           status:
-            description: status defines the observed state of StarvationEvent
+            description: status contains Beacon's processing result.
             properties:
               conditions:
                 items:

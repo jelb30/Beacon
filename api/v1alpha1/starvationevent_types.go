@@ -32,7 +32,7 @@ const (
 	StarvationSeverityCritical = "Critical"
 )
 
-// StarvationEventTargetRef identifies the workload associated with a starvation signal.
+// StarvationEventTargetRef points to the workload that reported starvation.
 type StarvationEventTargetRef struct {
 	// +kubebuilder:validation:Required
 	APIVersion string `json:"apiVersion"`
@@ -47,10 +47,10 @@ type StarvationEventTargetRef struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-// TargetRef is the shared workload reference shape used by Beacon signal sources.
+// TargetRef is the workload reference shape used by Beacon signal sources.
 type TargetRef = StarvationEventTargetRef
 
-// StarvationEventSpec defines the desired state of StarvationEvent
+// StarvationEventSpec describes one starvation signal.
 type StarvationEventSpec struct {
 	// +kubebuilder:validation:Required
 	PolicyName string `json:"policyName"`
@@ -76,7 +76,7 @@ type StarvationEventSpec struct {
 	Message string `json:"message,omitempty"`
 }
 
-// StarvationEventStatus defines the observed state of StarvationEvent.
+// StarvationEventStatus records how Beacon handled the signal.
 type StarvationEventStatus struct {
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
@@ -107,26 +107,26 @@ type StarvationEventStatus struct {
 // +kubebuilder:printcolumn:name="Processed",type=boolean,JSONPath=".status.processed"
 // +kubebuilder:printcolumn:name="LatencyMs",type=integer,JSONPath=".status.reactionLatencyMillis"
 
-// StarvationEvent is the Schema for the starvationevents API
+// StarvationEvent is a starvation signal for Beacon to process.
 type StarvationEvent struct {
 	metav1.TypeMeta `json:",inline"`
 
-	// metadata is a standard object metadata
+	// metadata is standard Kubernetes metadata.
 	// +optional
 	metav1.ObjectMeta `json:"metadata,omitzero"`
 
-	// spec defines the desired state of StarvationEvent
+	// spec contains the starvation signal details.
 	// +required
 	Spec StarvationEventSpec `json:"spec"`
 
-	// status defines the observed state of StarvationEvent
+	// status contains Beacon's processing result.
 	// +optional
 	Status StarvationEventStatus `json:"status,omitzero"`
 }
 
 // +kubebuilder:object:root=true
 
-// StarvationEventList contains a list of StarvationEvent
+// StarvationEventList contains StarvationEvent resources.
 type StarvationEventList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitzero"`

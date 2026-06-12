@@ -69,7 +69,7 @@ const (
 
 const targetMissingRequeue = 5 * time.Second
 
-// StarvationEventReconciler reconciles a StarvationEvent object
+// StarvationEventReconciler turns starvation events into Deployment patches.
 type StarvationEventReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
@@ -340,7 +340,7 @@ func (r *StarvationEventReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	return ctrl.Result{}, nil
 }
 
-// SetupWithManager sets up the controller with the Manager.
+// SetupWithManager registers the StarvationEvent controller.
 func (r *StarvationEventReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&autoscalingv1alpha1.StarvationEvent{}).

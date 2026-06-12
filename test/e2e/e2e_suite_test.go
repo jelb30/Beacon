@@ -32,18 +32,15 @@ import (
 )
 
 var (
-	// managerImage is the manager image to be built and loaded for testing.
+	// managerImage is built and loaded into Kind for e2e tests.
 	managerImage = "ghcr.io/jelb30/beacon-controller:e2e"
-	// shouldCleanupCertManager tracks whether CertManager was installed by this suite.
+	// shouldCleanupCertManager is true when this suite installed CertManager.
 	shouldCleanupCertManager = false
 )
 
-// TestE2E runs the e2e test suite to validate the solution in an isolated environment.
-// The default setup requires Kind and CertManager.
-//
-// To enable kubectl kuberc (use custom kubectl configurations), set: KUBECTL_KUBERC=true
-// By default, kuberc is disabled to ensure consistent test behavior across different environments.
-// To skip CertManager installation, set: CERT_MANAGER_INSTALL_SKIP=true
+// TestE2E runs Beacon e2e tests in Kind.
+// Set KUBECTL_KUBERC=true to allow local kubectl settings.
+// Set CERT_MANAGER_INSTALL_SKIP=true to skip CertManager setup.
 func TestE2E(t *testing.T) {
 	RegisterFailHandler(Fail)
 	_, _ = fmt.Fprintf(GinkgoWriter, "Starting beacon e2e test suite\n")
@@ -56,8 +53,7 @@ var _ = BeforeSuite(func() {
 	_, err := utils.Run(cmd)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to build the manager image")
 
-	// TODO(user): If you want to change the e2e test vendor from Kind,
-	// ensure the image is built and available, then remove the following block.
+	// Kind tests need the manager image loaded into the cluster.
 	By("loading the manager image on Kind")
 	err = utils.LoadImageToKindClusterWithName(managerImage)
 	ExpectWithOffset(1, err).NotTo(HaveOccurred(), "Failed to load the manager image into Kind")
@@ -70,9 +66,7 @@ var _ = AfterSuite(func() {
 	teardownCertManager()
 })
 
-// Disable kubectl kuberc by default for test isolation.
-// This prevents local kubectl configurations from affecting test behavior.
-// To enable kuberc, set: KUBECTL_KUBERC=true
+// configureKubectlKubeRC disables kuberc unless the caller opts in.
 func configureKubectlKubeRC() {
 	if os.Getenv("KUBECTL_KUBERC") != "true" {
 		By("disabling kubectl kuberc for test isolation")
@@ -85,8 +79,7 @@ func configureKubectlKubeRC() {
 	}
 }
 
-// setupCertManager installs CertManager if needed for webhook tests.
-// Skips installation if CERT_MANAGER_INSTALL_SKIP=true or if already present.
+// setupCertManager installs CertManager when the cluster does not have it.
 func setupCertManager() {
 	if os.Getenv("CERT_MANAGER_INSTALL_SKIP") == "true" {
 		_, _ = fmt.Fprintf(GinkgoWriter, "Skipping CertManager installation (CERT_MANAGER_INSTALL_SKIP=true)\n")
@@ -99,15 +92,14 @@ func setupCertManager() {
 		return
 	}
 
-	// Mark for cleanup before installation to handle interruptions and partial installs.
+	// Only clean up CertManager when this suite installed it.
 	shouldCleanupCertManager = true
 
 	By("installing CertManager")
 	Expect(utils.InstallCertManager()).To(Succeed(), "Failed to install CertManager")
 }
 
-// teardownCertManager uninstalls CertManager if it was installed by setupCertManager.
-// This ensures we only remove what we installed.
+// teardownCertManager removes CertManager only when this suite installed it.
 func teardownCertManager() {
 	if !shouldCleanupCertManager {
 		_, _ = fmt.Fprintf(GinkgoWriter, "Skipping CertManager cleanup (not installed by this suite)\n")
