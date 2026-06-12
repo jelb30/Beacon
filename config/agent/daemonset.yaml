@@ -1,0 +1,109 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: beacon-system
+  labels:
+    app.kubernetes.io/name: beacon
+    app.kubernetes.io/managed-by: kustomize
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: beacon-agent
+  namespace: beacon-system
+  labels:
+    app.kubernetes.io/name: beacon
+    app.kubernetes.io/component: agent
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: beacon-agent-starvationevent-writer
+  labels:
+    app.kubernetes.io/name: beacon
+    app.kubernetes.io/component: agent
+rules:
+- apiGroups:
+  - autoscaling.beacon.dev
+  resources:
+  - starvationevents
+  verbs:
+  - create
+  - get
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: beacon-agent-starvationevent-writer
+  labels:
+    app.kubernetes.io/name: beacon
+    app.kubernetes.io/component: agent
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: beacon-agent-starvationevent-writer
+subjects:
+- kind: ServiceAccount
+  name: beacon-agent
+  namespace: beacon-system
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: beacon-agent
+  namespace: beacon-system
+  labels:
+    app.kubernetes.io/name: beacon
+    app.kubernetes.io/component: agent
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: beacon
+      app.kubernetes.io/component: agent
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: beacon
+        app.kubernetes.io/component: agent
+    spec:
+      serviceAccountName: beacon-agent
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+      - operator: Exists
+      containers:
+      - name: beacon-agent
+        image: ghcr.io/jelb30/beacon-agent:latest
+        imagePullPolicy: IfNotPresent
+        args:
+        - --mode
+        - cgroup-psi
+        - --interval
+        - 5s
+        env:
+        - name: BEACON_CGROUP_PSI_CPU_PATH
+          value: /host/sys/fs/cgroup/cpu.pressure
+        - name: BEACON_CGROUP_PSI_MEMORY_PATH
+          value: /host/sys/fs/cgroup/memory.pressure
+        volumeMounts:
+        - name: host-cgroup
+          mountPath: /host/sys/fs/cgroup
+          readOnly: true
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          capabilities:
+            drop:
+            - ALL
+        resources:
+          requests:
+            cpu: 10m
+            memory: 64Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+      volumes:
+      - name: host-cgroup
+        hostPath:
+          path: /sys/fs/cgroup
+          type: Directory
