@@ -1,0 +1,31 @@
+# Optional sample only: build and publish a beacon-agent image before applying this Job.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: beacon-agent-once
+  namespace: default
+  labels:
+    app.kubernetes.io/name: beacon
+    app.kubernetes.io/component: agent
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: beacon
+        app.kubernetes.io/component: agent
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: beacon-agent
+        image: ghcr.io/jelb30/beacon-agent:latest
+        imagePullPolicy: IfNotPresent
+        args:
+        - --mode=synthetic
+        - --once
+        - --namespace=default
+        - --policy=sample-api-policy
+        - --deployment=sample-api
+        - --container=api
+        - --signal=CPUStarvation
+        - --severity=High

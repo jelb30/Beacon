@@ -47,6 +47,9 @@ type StarvationEventTargetRef struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
+// TargetRef is the shared workload reference shape used by Beacon signal sources.
+type TargetRef = StarvationEventTargetRef
+
 // StarvationEventSpec defines the desired state of StarvationEvent
 type StarvationEventSpec struct {
 	// +kubebuilder:validation:Required

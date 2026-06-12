@@ -14,7 +14,9 @@ Phase 3 adds the vertical scaling patch engine. CPU starvation events increase t
 
 Phase 4 adds a reproducible synthetic benchmark/demo harness that measures event-to-Deployment-patch reaction latency.
 
-These phases do not implement eBPF collection, Terraform, Prometheus metrics, OpenTelemetry tracing, or real production benchmarking.
+Phase 5 adds `beacon-agent`, a local starvation signal source that creates `StarvationEvent` resources automatically in synthetic mode.
+
+These phases do not implement real eBPF collection, Terraform, Prometheus metrics, OpenTelemetry tracing, or production benchmarking.
 
 ## Prerequisites
 
@@ -174,3 +176,44 @@ Latency budget: 4000ms
 Decision: VerticalScalePatchApplied
 Result: PASS
 ```
+
+## Phase 5 Agent Demo
+
+The Phase 5 agent emits `StarvationEvent` resources through the Kubernetes API. Synthetic mode is for reliable local macOS/kind development. Linux cgroup/eBPF detector modes are isolated behind build tags and are placeholders until a later phase adds node-level signal detection.
+
+Terminal 1:
+
+```sh
+make install
+make run
+```
+
+Terminal 2:
+
+```sh
+make demo-reset
+make agent-once
+```
+
+Inspect the result:
+
+```sh
+kubectl get starvationevents -A
+kubectl get beaconpolicy sample-api-policy -n default -o yaml
+kubectl get deployment sample-api -n default -o jsonpath='{.spec.template.spec.containers[0].resources.requests.cpu}{"\n"}'
+```
+
+Expected result:
+
+- `beacon-agent` creates a `StarvationEvent`.
+- The operator processes the event.
+- The sample Deployment CPU request increases from `100m` to `125m`.
+- `BeaconPolicy.status.lastDecision` becomes `VerticalScalePatchApplied`.
+
+Continuous synthetic mode:
+
+```sh
+make agent-run
+```
+
+Real eBPF or cgroup-based detection requires Linux node access and elevated permissions. That detector path is intentionally separated from the local synthetic mode so the operator demo remains portable.

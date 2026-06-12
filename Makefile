@@ -118,6 +118,14 @@ benchmark: ## Run one synthetic event-to-patch latency benchmark.
 benchmark-series: ## Run a repeated synthetic event-to-patch latency benchmark series.
 	./hack/run-benchmark-series.sh
 
+.PHONY: agent-once
+agent-once: ## Run beacon-agent once in local synthetic mode.
+	go run ./cmd/beacon-agent --mode synthetic --once
+
+.PHONY: agent-run
+agent-run: ## Run beacon-agent continuously in local synthetic mode.
+	go run ./cmd/beacon-agent --mode synthetic --interval 5s
+
 ##@ Build
 
 .PHONY: build
